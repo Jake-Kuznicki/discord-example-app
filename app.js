@@ -10,6 +10,7 @@ import {
 } from 'discord-interactions';
 import { getRandomEmoji, DiscordRequest } from './utils.js';
 import { getShuffledOptions, getResult } from './game.js';
+import { simulateKills } from './dropSimulator.js';
 
 // Create an express app
 const app = express();
@@ -164,6 +165,87 @@ app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async fun
               {
                 type: MessageComponentTypes.TEXT_DISPLAY,
                 content: `❌ Error fetching price data. Please try again later.`
+              }
+            ]
+          },
+        });
+      }
+    }
+
+    // "kill" command
+    if (name === 'kill') {
+      const killCount = data.options[0].value;
+      const bossName = data.options[1].value;
+      
+      try {
+        // Simulate kills with caching
+        const result = await simulateKills(bossName, killCount);
+        
+        if (result.error) {
+          return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              flags: InteractionResponseFlags.IS_COMPONENTS_V2,
+              components: [
+                {
+                  type: MessageComponentTypes.TEXT_DISPLAY,
+                  content: `❌ ${result.error}`
+                }
+              ]
+            },
+          });
+        }
+        
+        // Format loot display
+        const lootItems = Object.entries(result.loot)
+          .sort((a, b) => b[1] - a[1]) // Sort by quantity
+          .map(([item, qty]) => {
+            // Check if this is a unique drop
+            const isUnique = result.uniqueDrops && result.uniqueDrops.some(r => r.item === item);
+            const prefix = isUnique ? '🌟 ' : '';
+            return `${prefix}${qty}x ${item}`;
+          });
+        
+        // Build message
+        let message = `🎮 **${result.killCount}x ${result.monsterName} kills**\n\n`;
+        
+        if (lootItems.length === 0) {
+          message += "No loot (extremely unlucky!)";
+        } else {
+          // Show ALL items (no truncation)
+          message += lootItems.join('\n');
+        }
+        
+        // Add unique drop notifications
+        if (result.uniqueDrops && result.uniqueDrops.length > 0) {
+          message += '\n\n**🎉 Unique drops:**\n';
+          result.uniqueDrops.forEach(drop => {
+            message += `Kill #${drop.killNumber}: ${drop.item} (${drop.rarity})\n`;
+          });
+        }
+        
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.IS_COMPONENTS_V2,
+            components: [
+              {
+                type: MessageComponentTypes.TEXT_DISPLAY,
+                content: message
+              }
+            ]
+          },
+        });
+      } catch (error) {
+        console.error('Error in kill command:', error);
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            flags: InteractionResponseFlags.IS_COMPONENTS_V2,
+            components: [
+              {
+                type: MessageComponentTypes.TEXT_DISPLAY,
+                content: `❌ Error simulating kills. Please try again.`
               }
             ]
           },

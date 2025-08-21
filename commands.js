@@ -52,6 +52,31 @@ const ITEMPRICE_COMMAND = {
   contexts: [0, 1, 2],
 };
 
-const ALL_COMMANDS = [CHALLENGE_COMMAND, ITEMPRICE_COMMAND];
+// Kill simulator command
+const KILL_COMMAND = {
+  name: 'kill',
+  description: 'Simulate loot from killing a boss or monster',
+  options: [
+    {
+      type: 4, // INTEGER type
+      name: 'count',
+      description: 'Number of kills to simulate (1-10000)',
+      required: true,
+      min_value: 1,
+      max_value: 10000,
+    },
+    {
+      type: 3, // STRING type
+      name: 'boss',
+      description: 'Boss or monster name',
+      required: true,
+    },
+  ],
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 1, 2],
+};
+
+const ALL_COMMANDS = [CHALLENGE_COMMAND, ITEMPRICE_COMMAND, KILL_COMMAND];
 
 InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
